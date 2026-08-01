@@ -1,0 +1,27 @@
+# Build outputs
+server/build/
+
+# Compiled binaries
+*.o
+*.out
+*.exe
+fluxdb
+nexusdb
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SSH keys (never commit!)
+*.pem
+*.key
+
+# Logs
+*.log
