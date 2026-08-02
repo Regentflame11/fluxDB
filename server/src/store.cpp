@@ -4,7 +4,12 @@ KVStore::KVStore(size_t max_size) : max_size_(max_size) {}
 void KVStore::set(const std::string& key, const std::string& value) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = store_.find(key);
-    if (it != store_.end()) { lru_list_.erase(it->second.lru_it); store_.erase(it); }
+    if (it != store_.end()) {
+        lru_list_.erase(it->second.lru_it);
+        store_.erase(it);
+    } else if (store_.size() >= max_size_) {
+        evict_lru_locked(); // evict least-recently-used when at capacity
+    }
     lru_list_.push_front(key);
     store_[key] = { value, lru_list_.begin() };
 }
