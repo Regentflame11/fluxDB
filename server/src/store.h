@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include <list>
+#include <chrono>
 #include <optional>
 #include <vector>
 #include <mutex>
@@ -10,22 +11,30 @@
 class KVStore {
 public:
     explicit KVStore(size_t max_size = 1000);
-    void        set(const std::string& key, const std::string& value);
+    void        set(const std::string& key, const std::string& value, int ttl_seconds = -1);
     std::optional<std::string> get(const std::string& key);
     bool        del(const std::string& key);
     bool        exists(const std::string& key);
+    int         ttl(const std::string& key);
     std::vector<std::string> keys();
     size_t      size();
     void        flushall();
+    void        cleanup_expired();
     struct Stats { size_t key_count, hits, misses, evictions; double hit_rate; size_t max_size; };
     Stats stats();
 private:
-    struct Entry { std::string value; std::list<std::string>::iterator lru_it; };
+    struct Entry {
+        std::string value;
+        bool has_ttl = false;
+        std::chrono::steady_clock::time_point expiry;
+        std::list<std::string>::iterator lru_it;
+    };
     size_t max_size_;
     std::unordered_map<std::string, Entry> store_;
     std::list<std::string> lru_list_;
     std::mutex mutex_;
     std::atomic<size_t> hits_{0}, misses_{0}, evictions_{0};
     void evict_lru_locked();
+    bool is_expired_locked(const Entry& e) const;
     void touch_locked(const std::string& key, Entry& e);
 };
