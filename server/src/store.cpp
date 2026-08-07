@@ -33,6 +33,7 @@ bool KVStore::exists(const std::string& key) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = store_.find(key);
     if (it == store_.end()) return false;
+    // fix: erase from lru_list before erasing from map (prevents dangling iterator)
     if (is_expired_locked(it->second)) { lru_list_.erase(it->second.lru_it); store_.erase(it); return false; }
     return true;
 }
