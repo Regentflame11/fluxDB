@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FluxDB — Dashboard</title>
+    <meta name="description" content="FluxDB real-time monitoring dashboard — track keys, hit rates, and run queries against your in-memory store." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="header">
+    <div class="header-left">
+        <span class="brand">FluxDB</span>
+        <span class="brand-version">v1.0.0</span>
+        <span class="brand-sep">/</span>
+        <span class="brand-sub">In-Memory Key-Value Store</span>
+    </div>
+    <div class="header-right">
+        <div class="status-indicator" id="status-indicator"></div>
+        <span class="status-text" id="status-text">Connecting</span>
+        <span class="status-time" id="last-update"></span>
+    </div>
+</header>
+
+<main class="main">
+
+    <section class="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">Total Keys</div>
+            <div class="stat-value" id="stat-keys">—</div>
+            <div class="stat-meta" id="stat-maxkeys"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Hit Rate</div>
+            <div class="stat-value" id="stat-hitrate">—</div>
+            <div class="stat-meta" id="hitrate-meta"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Cache Hits</div>
+            <div class="stat-value accent-green" id="stat-hits">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Cache Misses</div>
+            <div class="stat-value accent-red" id="stat-misses">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">LRU Evictions</div>
+            <div class="stat-value accent-dim" id="stat-evictions">—</div>
+        </div>
+    </section>
+
+    <section class="charts-row">
+        <div class="chart-card">
+            <div class="chart-header">
+                <span class="chart-title">Hit / Miss Over Time</span>
+                <span class="live-badge">live</span>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="chart-hitrate"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-header">
+                <span class="chart-title">Key Count Over Time</span>
+                <span class="live-badge">live</span>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="chart-keys"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="bottom-row">
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Query Console</span>
+                <button class="btn-text" id="btn-clear-console">clear</button>
+            </div>
+            <div class="console-output" id="console-output">
+                <div class="console-line info">FluxDB console ready — try PING</div>
+            </div>
+            <div class="console-input-row">
+                <span class="prompt">fluxdb&gt;</span>
+                <input
+                    type="text"
+                    id="console-input"
+                    class="console-input"
+                    placeholder="SET key value | GET key | KEYS | STATS"
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <button class="btn-run" id="btn-run">Run</button>
+            </div>
+            <div class="hints-row">
+                <span class="hint" data-cmd="PING">PING</span>
+                <span class="hint" data-cmd="STATS">STATS</span>
+                <span class="hint" data-cmd="KEYS">KEYS</span>
+                <span class="hint" data-cmd="SET demo hello EX 30">SET demo</span>
+                <span class="hint" data-cmd="GET demo">GET demo</span>
+                <span class="hint" data-cmd="FLUSHALL">FLUSHALL</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Key Browser</span>
+                <button class="btn-text" id="btn-refresh-keys">refresh</button>
+            </div>
+            <input
+                type="text"
+                id="key-search"
+                class="key-search"
+                placeholder="Search keys..."
+            />
+            <div class="key-list" id="key-list">
+                <div class="key-empty">No keys found</div>
+            </div>
+        </div>
+
+    </section>
+
+</main>
+
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-key-name" id="modal-key-name"></span>
+            <button class="btn-text" id="modal-close">close</button>
+        </div>
+        <div class="modal-field">
+            <div class="field-label">value</div>
+            <pre class="field-value" id="modal-value"></pre>
+        </div>
+        <div class="modal-field">
+            <div class="field-label">ttl</div>
+            <span class="field-ttl" id="modal-ttl"></span>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-delete" id="modal-del">Delete Key</button>
+            <button class="btn-cancel" id="modal-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+
+
