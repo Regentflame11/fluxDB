@@ -1,0 +1,51 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────
+#  FluxDB — Docker Compose
+#
+#  Services:
+#   fluxdb-server  — C++ backend (TCP :6379, REST :8080)
+#   fluxdb-dash    — Nginx serving the web dashboard (:3000)
+# ─────────────────────────────────────────────────────
+
+services:
+
+  fluxdb-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: fluxdb-server
+    restart: unless-stopped
+    ports:
+      - "6379:6379"   # TCP protocol port (connect with telnet/netcat)
+      - "8080:8080"   # REST API port
+    environment:
+      - MAX_KEYS=10000
+    command: ["--tcp-port", "6379", "--api-port", "8080", "--max-keys", "10000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - fluxdb-net
+
+  fluxdb-dash:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: fluxdb-dash
+    restart: unless-stopped
+    ports:
+      - "3000:80"     # Dashboard accessible at http://localhost:3000
+    depends_on:
+      fluxdb-server:
+        condition: service_healthy
+    networks:
+      - fluxdb-net
+
+networks:
+  fluxdb-net:
+    driver: bridge
+
