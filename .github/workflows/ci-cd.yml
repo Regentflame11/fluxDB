@@ -1,0 +1,131 @@
+name: FluxDB CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  IMAGE_NAME: fluxdb
+
+jobs:
+  # ─────────────────────────────────────────────────
+  #  Job 1: Build & Test
+  # ─────────────────────────────────────────────────
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev
+
+      - name: Build C++ server
+        run: |
+          cd server
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel $(nproc)
+
+      - name: Run basic smoke test
+        run: |
+          # Start the server in background
+          ./server/build/fluxdb --tcp-port 6399 --api-port 8099 &
+          SERVER_PID=$!
+          sleep 2
+
+          # Test REST API
+          HEALTH=$(curl -sf http://localhost:8099/api/health || echo "fail")
+          echo "Health check: $HEALTH"
+
+          # Test PING command
+          PING=$(curl -sf -X POST http://localhost:8099/api/query \
+            -H "Content-Type: application/json" \
+            -d '{"cmd":"PING"}')
+          echo "PING result: $PING"
+
+          # Test SET/GET
+          curl -sf -X POST http://localhost:8099/api/query \
+            -H "Content-Type: application/json" \
+            -d '{"cmd":"SET ci_test hello_world"}'
+
+          GET=$(curl -sf -X POST http://localhost:8099/api/query \
+            -H "Content-Type: application/json" \
+            -d '{"cmd":"GET ci_test"}')
+          echo "GET result: $GET"
+
+          echo "$GET" | grep "hello_world" || { echo "TEST FAILED"; kill $SERVER_PID; exit 1; }
+          echo "✅ All smoke tests passed!"
+
+          kill $SERVER_PID
+
+  # ─────────────────────────────────────────────────
+  #  Job 2: Build Docker Images
+  # ─────────────────────────────────────────────────
+  docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build server Docker image
+        run: docker build -t fluxdb-server:latest ./server
+
+      - name: Build dashboard Docker image
+        run: docker build -t fluxdb-dash:latest ./dashboard
+
+      - name: Test Docker Compose
+        run: |
+          docker compose up -d
+          sleep 8
+          curl -sf http://localhost:8080/api/health
+          echo "✅ Docker Compose test passed!"
+          docker compose down
+
+  # ─────────────────────────────────────────────────
+  #  Job 3: Deploy to EC2 (only on main branch push)
+  # ─────────────────────────────────────────────────
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: [build, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/fluxdb.pem
+          chmod 600 ~/.ssh/fluxdb.pem
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          SSH_KEY_PATH: ~/.ssh/fluxdb.pem
+          APP_DIR: /home/ubuntu/fluxdb
+          BRANCH: main
+        run: |
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh $EC2_HOST ~/.ssh/fluxdb.pem
+
+      - name: Notify success
+        run: |
+          echo "🚀 FluxDB successfully deployed!"
+          echo "   Dashboard: http://${{ secrets.EC2_HOST }}:3000"
+          echo "   TCP:       ${{ secrets.EC2_HOST }}:6379"
+# fixed
+
+
+
