@@ -1,4 +1,3 @@
-# updated
 # FluxDB CI/CD Pipeline
 name: FluxDB CI/CD Pipeline
 
@@ -62,7 +61,7 @@ jobs:
           echo "GET result: $GET"
 
           echo "$GET" | grep "hello_world" || { echo "TEST FAILED"; kill $SERVER_PID; exit 1; }
-          echo "✅ All smoke tests passed!"
+          echo "All smoke tests passed."
 
           kill $SERVER_PID
 
@@ -89,7 +88,7 @@ jobs:
           docker compose up -d
           sleep 8
           curl -sf http://localhost:8080/api/health
-          echo "✅ Docker Compose test passed!"
+          echo "Docker Compose test passed."
           docker compose down
 
   # ─────────────────────────────────────────────────
@@ -99,7 +98,11 @@ jobs:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
     needs: [build, docker]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      secrets.EC2_HOST != '' &&
+      secrets.EC2_SSH_KEY != ''
 
     steps:
       - name: Checkout code
@@ -110,24 +113,22 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/fluxdb.pem
           chmod 600 ~/.ssh/fluxdb.pem
-          ssh-keyscan -H -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           SSH_KEY_PATH: ~/.ssh/fluxdb.pem
-          APP_DIR: /home/ubuntu/fluxdb
+          APP_DIR: /home/ubuntu/fluxDB
           BRANCH: main
         run: |
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh $EC2_HOST ~/.ssh/fluxdb.pem
 
-      - name: Notify success
+      - name: Deployment complete
         run: |
-          echo "🚀 FluxDB successfully deployed!"
-          echo "   Dashboard: http://${{ secrets.EC2_HOST }}:3000"
-          echo "   TCP:       ${{ secrets.EC2_HOST }}:6379"
-# fixed
+          echo "FluxDB deployed successfully."
+          echo "Dashboard: http://${{ secrets.EC2_HOST }}:3000"
 
 
 
